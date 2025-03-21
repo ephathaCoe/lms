@@ -557,7 +557,7 @@ app.put('/api/loan-applications/:id/status', authenticateToken, async (req, res)
     await connection.commit();
     await logAudit(req.user.id, 'UPDATE_APPLICATION_STATUS', `Updated application ${id} status to ${status}`);
     
-    const [updatedApplications] = await pool.query('SELECT * FROM loan_applications WHERE id = ?', [id]);
+    const [updatedApplications] = await connection.query('SELECT * FROM loan_applications WHERE id = ?', [id]);
     res.json(updatedApplications[0]);
   } catch (error) {
     await connection.rollback();
@@ -702,7 +702,7 @@ app.put('/api/cash-flow/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'System-generated transactions cannot be modified' });
     }
     
-    constupdates = [];
+    const updates = [];
     const values = [];
     if (type) {
       if (!['income', 'expense'].includes(type)) {
@@ -758,7 +758,37 @@ app.get('/api/repayments', authenticateToken, async (req, res) => {
        JOIN loan_applications a ON r.loan_application_id = a.id
        ORDER BY r.due_date ASC`
     );
-    res.json(repayments);
+    
+    // Calculate repayment summary
+    const today = new Date().toISOString().split('T')[0];
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const thirtyDaysDate = thirtyDaysFromNow.toISOString().split('T')[0];
+    
+    const [totalDueResult] = await pool.query(
+      `SELECT SUM(amount) as total_due FROM loan_repayments WHERE paid = 0`
+    );
+    
+    const [overdueResult] = await pool.query(
+      `SELECT SUM(amount) as overdue FROM loan_repayments WHERE paid = 0 AND due_date < ?`,
+      [today]
+    );
+    
+    const [dueSoonResult] = await pool.query(
+      `SELECT SUM(amount) as due_soon FROM loan_repayments WHERE paid = 0 AND due_date BETWEEN ? AND ?`,
+      [today, thirtyDaysDate]
+    );
+    
+    const repaymentSummary = {
+      total_due: totalDueResult[0].total_due || 0,
+      overdue: overdueResult[0].overdue || 0,
+      due_soon: dueSoonResult[0].due_soon || 0
+    };
+    
+    res.json({
+      repayments,
+      summary: repaymentSummary
+    });
   } catch (error) {
     console.error('Error fetching repayments:', error);
     res.status(500).json({ message: 'Server error fetching repayments' });
@@ -823,23 +853,35 @@ app.post('/api/repayments/:id/pay', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/reports/cash-flow', authenticateToken, async (req, res) => {
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, sortBy, sortOrder } = req.query;
   
   if (!startDate || !endDate) {
     return res.status(400).json({ message: 'Start date and end date are required' });
   }
   
   try {
-    const [results] = await pool.query(
-      `SELECT date, 
+    let query = `
+      SELECT date, 
        SUM(CASE WHEN type IN ('income', 'loan_repayment') THEN amount ELSE 0 END) as income,
        SUM(CASE WHEN type IN ('expense', 'loan_disbursement') THEN amount ELSE 0 END) as expense
        FROM cash_flow
        WHERE date BETWEEN ? AND ?
-       GROUP BY date
-       ORDER BY date`,
-      [startDate, endDate]
-    );
+       GROUP BY date`;
+    
+    // Add sorting if provided
+    if (sortBy) {
+      const validSortFields = ['date', 'income', 'expense'];
+      const validSortOrders = ['asc', 'desc'];
+      
+      const field = validSortFields.includes(sortBy) ? sortBy : 'date';
+      const order = validSortOrders.includes(sortOrder) ? sortOrder : 'desc';
+      
+      query += ` ORDER BY ${field} ${order}`;
+    } else {
+      query += ` ORDER BY date`;
+    }
+    
+    const [results] = await pool.query(query, [startDate, endDate]);
     res.json(results);
   } catch (error) {
     console.error('Error generating cash flow report:', error);
@@ -848,16 +890,31 @@ app.get('/api/reports/cash-flow', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/reports/loan-applications', authenticateToken, async (req, res) => {
-  const { status } = req.query;
+  const { status, sortBy, sortOrder } = req.query;
   
   try {
     let query = 'SELECT status, COUNT(*) as count FROM loan_applications';
     const params = [];
+    
     if (status) {
       query += ' WHERE status = ?';
       params.push(status);
     }
+    
     query += ' GROUP BY status';
+    
+    // Add sorting if provided
+    if (sortBy) {
+      const validSortFields = ['status', 'count'];
+      const validSortOrders = ['asc', 'desc'];
+      
+      const field = validSortFields.includes(sortBy) ? sortBy : 'count';
+      const order = validSortOrders.includes(sortOrder) ? sortOrder : 'desc';
+      
+      query += ` ORDER BY ${field} ${order}`;
+    } else {
+      query += ` ORDER BY count DESC`;
+    }
     
     const [results] = await pool.query(query, params);
     res.json(results);
@@ -868,9 +925,11 @@ app.get('/api/reports/loan-applications', authenticateToken, async (req, res) =>
 });
 
 app.get('/api/reports/loan-repayments', authenticateToken, async (req, res) => {
+  const { sortBy, sortOrder } = req.query;
+  
   try {
-    const [results] = await pool.query(
-      `SELECT 
+    let query = `
+      SELECT 
         a.id as loan_id,
         a.applicant_name,
         a.nida_id,
@@ -888,8 +947,26 @@ app.get('/api/reports/loan-repayments', authenticateToken, async (req, res) => {
       LEFT JOIN loan_repayments r ON a.id = r.loan_application_id
       WHERE a.status = 'approved'
       GROUP BY a.id, a.applicant_name, a.nida_id, a.loan_amount, a.interest_rate, a.term_months, a.status
-      ORDER BY a.created_at DESC`
-    );
+    `;
+    
+    // Add sorting if provided
+    if (sortBy) {
+      const validSortFields = [
+        'loan_id', 'applicant_name', 'loan_amount', 'total_installments', 
+        'paid_installments', 'unpaid_installments', 'total_repayment_amount', 
+        'paid_amount', 'remaining_amount'
+      ];
+      const validSortOrders = ['asc', 'desc'];
+      
+      const field = validSortFields.includes(sortBy) ? sortBy : 'remaining_amount';
+      const order = validSortOrders.includes(sortOrder) ? sortOrder : 'desc';
+      
+      query += ` ORDER BY ${field} ${order}`;
+    } else {
+      query += ` ORDER BY remaining_amount DESC`;
+    }
+    
+    const [results] = await pool.query(query);
     res.json(results);
   } catch (error) {
     console.error('Error generating loan repayments report:', error);

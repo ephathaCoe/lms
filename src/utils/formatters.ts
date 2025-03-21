@@ -1,28 +1,26 @@
+import { format, parseISO } from 'date-fns';
+
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency: 'TZS',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 };
 
 export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
+  try {
+    return format(parseISO(dateString), 'MMM dd, yyyy');
+  } catch (error) {
+    return dateString;
+  }
 };
 
-export const formatDateFull = (dateString: string): string => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+export const formatDateTime = (dateString: string): string => {
+  try {
+    return format(parseISO(dateString), 'MMM dd, yyyy HH:mm');
+  } catch (error) {
+    return dateString;
+  }
 };

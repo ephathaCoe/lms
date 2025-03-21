@@ -106,3 +106,29 @@ export interface LoanStatusReport {
   status: string;
   count: number;
 }
+
+export interface LoanRepaymentReport {
+  loan_id: number;
+  applicant_name: string;
+  nida_id: string;
+  loan_amount: number;
+  interest_rate: number;
+  term_months: number;
+  status: string;
+  total_installments: number;
+  paid_installments: number;
+  unpaid_installments: number;
+  total_repayment_amount: number;
+  paid_amount: number;
+  remaining_amount: number;
+}
+
+export interface RepaymentSummary {
+  total_due: number;
+  overdue: number;
+  due_soon: number;
+}
+
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+export type SortOrder = 'asc' | 'desc';

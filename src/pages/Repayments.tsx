@@ -3,102 +3,53 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { fetchRepayments, markRepaymentAsPaid } from '../api/repayments';
 import { PageContainer } from '../components/layout/PageContainer';
-import { Card } from '../components/ui/card';
-import { StatusBadge } from '../components/ui/status-badge';
-import { LoanRepayment } from '../types';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { LoanRepayment, RepaymentSummary } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { Search, CheckCircle, AlertCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, AlertTriangle, Clock, DollarSign } from 'lucide-react';
+import { format, parseISO, isAfter } from 'date-fns';
 
 export default function Repayments() {
   const { token } = useAuth();
   const { showToast } = useToast();
   const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
-  const [filteredRepayments, setFilteredRepayments] = useState<LoanRepayment[]>([]);
+  const [summary, setSummary] = useState<RepaymentSummary>({
+    total_due: 0,
+    overdue: 0,
+    due_soon: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState<number | null>(null);
-  
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [filter, setFilter] = useState('all'); // 'all', 'paid', 'unpaid', 'overdue'
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const loadRepayments = async () => {
-      if (!token) return;
-      
-      try {
-        const data = await fetchRepayments(token);
-        setRepayments(data);
-        setFilteredRepayments(data);
-      } catch (error) {
-        showToast('error', 'Error', error instanceof Error ? error.message : 'Failed to load repayments');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadRepayments();
-  }, [token, showToast]);
+  }, [token]);
 
-  // Filter and sort repayments based on search query and paid status
-  useEffect(() => {
-    let filtered = [...repayments];
+  const loadRepayments = async () => {
+    if (!token) return;
     
-    // Apply search filter if query exists
-    if (searchQuery.trim()) {
-      const lowercaseQuery = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        repayment => 
-          (repayment.applicant_name?.toLowerCase() || '').includes(lowercaseQuery) ||
-          (repayment.nida_id?.toLowerCase() || '').includes(lowercaseQuery) ||
-          repayment.amount.toString().includes(lowercaseQuery)
-      );
+    setIsLoading(true);
+    try {
+      const response = await fetchRepayments(token);
+      setRepayments(response.repayments);
+      setSummary(response.summary);
+    } catch (error) {
+      showToast('error', 'Error', error instanceof Error ? error.message : 'Failed to load repayments');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Sort repayments: unpaid first (sorted by due date), then paid
-    filtered.sort((a, b) => {
-      // First sort by paid status (unpaid first)
-      if (a.paid !== b.paid) {
-        return a.paid ? 1 : -1;
-      }
-      
-      // For unpaid repayments, sort by due date (ascending)
-      if (!a.paid) {
-        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-      }
-      
-      // For paid repayments, sort by paid date (descending)
-      if (a.paid_date && b.paid_date) {
-        return new Date(b.paid_date).getTime() - new Date(a.paid_date).getTime();
-      }
-      
-      return 0;
-    });
-    
-    setFilteredRepayments(filtered);
-    setCurrentPage(1); // Reset to first page when filtering
-  }, [searchQuery, repayments]);
-
-  // Get current repayments for pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentRepayments = filteredRepayments.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredRepayments.length / itemsPerPage);
+  };
 
   const handleMarkAsPaid = async (id: number) => {
     if (!token) return;
     
     setIsProcessing(id);
-    
     try {
-      const updatedRepayment = await markRepaymentAsPaid(token, id);
-      
-      // Update local state
-      setRepayments(repayments.map(repayment => 
-        repayment.id === id ? updatedRepayment : repayment
-      ));
-      
-      showToast('success', 'Payment Recorded', 'Repayment marked as paid successfully');
+      await markRepaymentAsPaid(token, id);
+      showToast('success', 'Success', 'Repayment marked as paid');
+      loadRepayments();
     } catch (error) {
       showToast('error', 'Error', error instanceof Error ? error.message : 'Failed to mark repayment as paid');
     } finally {
@@ -106,48 +57,30 @@ export default function Repayments() {
     }
   };
 
-  const getRepaymentStatus = (repayment: LoanRepayment): 'paid' | 'overdue' | 'due-soon' => {
-    if (repayment.paid) return 'paid';
+  const filteredRepayments = repayments.filter(repayment => {
+    const matchesSearch = 
+      repayment.applicant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      repayment.nida_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const dueDate = new Date(repayment.due_date);
     const today = new Date();
+    const dueDate = parseISO(repayment.due_date);
+    const isOverdue = !repayment.paid && isAfter(today, dueDate);
     
-    // If due date is in the past, it's overdue
-    if (dueDate < today) return 'overdue';
-    
-    // If due date is within the next 7 days, it's due soon
-    const sevenDaysFromNow = new Date();
-    sevenDaysFromNow.setDate(today.getDate() + 7);
-    
-    if (dueDate <= sevenDaysFromNow) return 'due-soon';
-    
-    // Default to due-soon for unpaid repayments
-    return 'due-soon';
-  };
-
-  // Calculate summary stats
-  const totalDue = repayments
-    .filter(r => !r.paid)
-    .reduce((sum, r) => sum + r.amount, 0);
-    
-  const overdue = repayments
-    .filter(r => !r.paid && new Date(r.due_date) < new Date())
-    .reduce((sum, r) => sum + r.amount, 0);
-    
-  const dueSoon = repayments
-    .filter(r => {
-      if (r.paid) return false;
-      const dueDate = new Date(r.due_date);
-      const today = new Date();
-      const sevenDaysFromNow = new Date();
-      sevenDaysFromNow.setDate(today.getDate() + 7);
-      return dueDate >= today && dueDate <= sevenDaysFromNow;
-    })
-    .reduce((sum, r) => sum + r.amount, 0);
+    switch (filter) {
+      case 'paid':
+        return repayment.paid && matchesSearch;
+      case 'unpaid':
+        return !repayment.paid && matchesSearch;
+      case 'overdue':
+        return isOverdue && matchesSearch;
+      default:
+        return matchesSearch;
+    }
+  });
 
   if (isLoading) {
     return (
-      <PageContainer title="Repayments">
+      <PageContainer title="Loan Repayments">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
@@ -156,60 +89,108 @@ export default function Repayments() {
   }
 
   return (
-    <PageContainer title="Repayments">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <PageContainer title="Loan Repayments">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card>
-          <div className="p-6 flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-              <Clock className="h-6 w-6" />
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 rounded-full bg-blue-100 text-blue-600 mr-3">
+                <DollarSign className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Total Due</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(summary.total_due)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Due</p>
-              <h3 className="text-2xl font-bold text-gray-900">{formatCurrency(totalDue)}</h3>
-            </div>
-          </div>
+          </CardContent>
         </Card>
         
         <Card>
-          <div className="p-6 flex items-center">
-            <div className="p-3 rounded-full bg-red-100 text-red-600 mr-4">
-              <AlertCircle className="h-6 w-6" />
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 rounded-full bg-red-100 text-red-600 mr-3">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Overdue</p>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(summary.overdue)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Overdue</p>
-              <h3 className="text-2xl font-bold text-red-600">{formatCurrency(overdue)}</h3>
-            </div>
-          </div>
+          </CardContent>
         </Card>
         
         <Card>
-          <div className="p-6 flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
-              <Clock className="h-6 w-6" />
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 rounded-full bg-yellow-100 text-yellow-600 mr-3">
+                <Clock className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Due Soon (30 days)</p>
+                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.due_soon)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Due Soon</p>
-              <h3 className="text-2xl font-bold text-yellow-600">{formatCurrency(dueSoon)}</h3>
-            </div>
-          </div>
+          </CardContent>
         </Card>
       </div>
       
-      {/* Repayments Table */}
-      <Card className="mb-6">
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row justify-between mb-4">
-            <div className="relative mb-4 md:mb-0 md:w-64">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Repayment Schedule</CardTitle>
+        </CardHeader>
+        
+        <CardContent>
+          <div className="flex flex-col md:flex-row justify-between mb-6">
+            <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 mb-4 md:mb-0">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-3 py-2 text-sm rounded-md ${
+                  filter === 'all' 
+                    ? 'bg-primary text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilter('paid')}
+                className={`px-3 py-2 text-sm rounded-md ${
+                  filter === 'paid' 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Paid
+              </button>
+              <button
+                onClick={() => setFilter('unpaid')}
+                className={`px-3 py-2 text-sm rounded-md ${
+                  filter === 'unpaid' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Unpaid
+              </button>
+              <button
+                onClick={() => setFilter('overdue')}
+                className={`px-3 py-2 text-sm rounded-md ${
+                  filter === 'overdue' 
+                    ? 'bg-red-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Overdue
+              </button>
+            </div>
+            
+            <div className="relative">
               <input
                 type="text"
-                placeholder="Search repayments..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Search by name or ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
           </div>
@@ -222,16 +203,13 @@ export default function Repayments() {
                     Applicant
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    NIDA ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Due Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Loan
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount Paid
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -242,59 +220,68 @@ export default function Repayments() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentRepayments.length > 0 ? (
-                  currentRepayments.map(repayment => (
-                    <tr key={repayment.id} className={`hover:bg-gray-50 ${repayment.paid ? 'bg-gray-50' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium">{repayment.applicant_name}</div>
-                        <div className="text-sm text-gray-500">{repayment.nida_id}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {formatDate(repayment.due_date)}
-                        {repayment.paid && repayment.paid_date && (
-                          <div className="text-sm text-gray-500">
-                            Paid on: {formatDate(repayment.paid_date)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {formatCurrency(repayment.amount)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {formatCurrency(repayment.total_loan || 0)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {formatCurrency(repayment.amount_paid || 0)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge status={getRepaymentStatus(repayment)} />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleMarkAsPaid(repayment.id)}
-                          disabled={repayment.paid || isProcessing === repayment.id}
-                          className={`px-3 py-1 rounded-md text-sm font-medium flex items-center ${
-                            repayment.paid || isProcessing === repayment.id
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-green-100 text-green-700 hover:bg-green-200'
-                          }`}
-                        >
-                          {isProcessing === repayment.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-700 mr-2"></div>
+                {filteredRepayments.length > 0 ? (
+                  filteredRepayments.map((repayment) => {
+                    const today = new Date();
+                    const dueDate = parseISO(repayment.due_date);
+                    const isOverdue = !repayment.paid && isAfter(today, dueDate);
+                    
+                    return (
+                      <tr key={repayment.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {repayment.applicant_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {repayment.nida_id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(repayment.due_date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatCurrency(repayment.amount)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {repayment.paid ? (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              Paid
+                            </span>
+                          ) : isOverdue ? (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                              Overdue
+                            </span>
                           ) : (
-                            <CheckCircle className="h-4 w-4 mr-2" />
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                              Pending
+                            </span>
                           )}
-                          {repayment.paid ? 'Paid' : 'Mark as Paid'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {!repayment.paid && (
+                            <button
+                              onClick={() => handleMarkAsPaid(repayment.id)}
+                              disabled={isProcessing === repayment.id}
+                              className="text-primary hover:text-primary-dark disabled:text-gray-400 disabled:cursor-not-allowed"
+                            >
+                              {isProcessing === repayment.id ? (
+                                <span className="flex items-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                                  Processing...
+                                </span>
+                              ) : (
+                                <span className="flex items-center">
+                                  <Check className="h-4 w-4 mr-1" />
+                                  Mark as Paid
+                                </span>
+                              )}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-6 py-4 text-center text-sm text-gray-500"
-                    >
+                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                       No repayments found
                     </td>
                   </tr>
@@ -302,37 +289,7 @@ export default function Repayments() {
               </tbody>
             </table>
           </div>
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center">
-                <span className="text-sm text-gray-700">
-                  Page {currentPage} of {totalPages}
-                </span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 flex items-center"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 flex items-center"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        </CardContent>
       </Card>
     </PageContainer>
   );

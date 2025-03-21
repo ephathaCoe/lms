@@ -1,8 +1,13 @@
-import { LoanRepayment } from '../types';
+import { LoanRepayment, RepaymentSummary } from '../types';
 
 const API_URL = 'http://localhost:3001/api';
 
-export const fetchRepayments = async (token: string): Promise<LoanRepayment[]> => {
+interface RepaymentResponse {
+  repayments: LoanRepayment[];
+  summary: RepaymentSummary;
+}
+
+export const fetchRepayments = async (token: string): Promise<RepaymentResponse> => {
   const response = await fetch(`${API_URL}/repayments`, {
     headers: {
       'Authorization': `Bearer ${token}`,
