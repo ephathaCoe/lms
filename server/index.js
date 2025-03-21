@@ -834,7 +834,7 @@ app.post('/api/repayments/:id/pay', authenticateToken, async (req, res) => {
     await connection.commit();
     await logAudit(req.user.id, 'MARK_REPAYMENT_PAID', `Marked repayment ${id} as paid`);
     
-    const [updatedRepayments] = await pool.query(
+    const [updatedRepayments] = await connection.query(
       `SELECT r.*, a.applicant_name, a.nida_id, a.loan_amount as total_loan,
        (SELECT SUM(amount) FROM loan_repayments WHERE loan_application_id = r.loan_application_id AND paid = 1) as amount_paid
        FROM loan_repayments r
