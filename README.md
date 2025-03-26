@@ -1,135 +1,256 @@
-# Loan Management System
+# Amaris Co. Ltd - Heavy Machinery Website
 
-A comprehensive web-based loan management system for managing loan applications, cash flow, repayments, and generating reports.
+A comprehensive website for Amaris Co. Ltd, a heavy machinery selling company. The website allows visitors to browse products, view detailed information, and request invoices. It also includes an admin panel for managing products, users, and invoice requests.
 
 ## Features
 
-- User authentication with JWT
-- Loan application management with document uploads
-- Cash flow tracking (income and expenses)
-- Loan repayment scheduling and tracking
-- Reporting with charts and visualizations
-- Audit logging for security
+### Public Features
+- Responsive design for all devices
+- Product catalog with filtering and search
+- Detailed product pages with specifications and images
+- Invoice request system
+- Contact form
+- About us page
+
+### Admin Features
+- Dashboard with key metrics
+- Product management (add, edit, delete)
+- Invoice request management
+- User management
+- Authentication system
 
 ## Tech Stack
 
-### Frontend
-- React 18 with TypeScript
-- Vite as the build tool
-- Tailwind CSS for styling
-- shadcn/ui components
-- Lucide React for icons
-
-### Backend
-- Node.js with Express
-- MySQL database (via mysql2/promise)
-- JWT for authentication
-- bcryptjs for password hashing
-- multer for file uploads
+- **Frontend**: React 18 with TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **State Management**: React Context API
+- **Routing**: React Router v6
+- **Form Handling**: React Hook Form with Zod validation
+- **UI Components**: shadcn/ui (built on Radix UI)
+- **Icons**: Lucide React
 
 ## Getting Started
 
-### Clone the repository
+### Prerequisites
+- Node.js 16+ installed
+- npm or yarn package manager
 
+### Installation
+
+1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/loan-management-system.git
-cd loan-management-system
-```
-
-### Setup Instructions
-
-#### Prerequisites
-- Node.js 18+ installed
-- MySQL 8.0+ database (already set up at 197.186.16.150)
-
-#### Backend Setup
-1. Navigate to the server directory:
-```bash
-cd server
+git clone https://github.com/your-username/amaris-machinery.git
+cd amaris-machinery
 ```
 
 2. Install dependencies:
 ```bash
 npm install
-```
-
-3. Start the server:
-```bash
-npm start
-```
-
-The backend will run on http://localhost:3001
-
-#### Frontend Setup
-1. Navigate to the project root directory
-
-2. Install dependencies:
-```bash
-npm install
+# or
+yarn install
 ```
 
 3. Start the development server:
 ```bash
 npm run dev
+# or
+yarn dev
 ```
 
-The frontend will run on http://localhost:5173
+4. Open your browser and navigate to `http://localhost:5173`
 
-## Usage
+## Building for Production
 
-1. Register a new user account
-2. Log in with your credentials
-3. Use the sidebar navigation to access different features:
-   - Dashboard: View summary metrics and recent activities
-   - Loan Applications: Manage loan applications
-   - Cash Flow: Track income and expenses
-   - Repayments: Monitor and manage loan repayments
-   - Reports: Generate and view reports
+1. Create a production build:
+```bash
+npm run build
+# or
+yarn build
+```
 
-## Database Configuration
+2. Preview the production build locally:
+```bash
+npm run preview
+# or
+yarn preview
+```
 
-The application is configured to connect to a MySQL database with the following settings:
-- Host: 197.186.16.150
-- Port: 3306
-- Database: loan_system
-- User: root
-- Password: root
+## Deployment Instructions
 
-The database schema will be automatically created when the server starts.
+### Option 1: Deploy to Netlify
 
-## API Endpoints
+1. Create an account on [Netlify](https://www.netlify.com/) if you don't have one.
 
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login and get JWT token
+2. Install the Netlify CLI:
+```bash
+npm install -g netlify-cli
+```
 
-### Loan Applications
-- `GET /api/loan-applications` - Get all loan applications
-- `POST /api/loan-applications` - Create a new loan application
-- `PUT /api/loan-applications/:id/status` - Update application status
-- `DELETE /api/loan-applications/:id` - Delete an application
+3. Login to Netlify:
+```bash
+netlify login
+```
 
-### Dashboard
-- `GET /api/dashboard` - Get dashboard summary data
+4. Deploy the site:
+```bash
+netlify deploy
+```
 
-### Cash Flow
-- `GET /api/cash-flow` - Get all cash flow transactions
-- `POST /api/cash-flow` - Create a new transaction
-- `PUT /api/cash-flow/:id` - Update a transaction
-- `DELETE /api/cash-flow/:id` - Delete a transaction
+5. Follow the prompts to set up your site. When asked for the publish directory, enter `dist`.
 
-### Repayments
-- `GET /api/repayments` - Get all repayments
-- `POST /api/repayments/:id/pay` - Mark a repayment as paid
+6. Once you're satisfied with the preview, deploy to production:
+```bash
+netlify deploy --prod
+```
 
-### Reports
-- `GET /api/reports/cash-flow` - Get cash flow report data
-- `GET /api/reports/loan-applications` - Get loan applications report data
+### Option 2: Deploy to Vercel
 
-## Security Considerations
+1. Create an account on [Vercel](https://vercel.com/) if you don't have one.
 
-- JWT tokens expire after 1 hour
-- Passwords are hashed using bcrypt
-- File uploads are restricted to specific file types and sizes
-- All API endpoints (except login/register) require authentication
-- Audit logging tracks user actions
+2. Install the Vercel CLI:
+```bash
+npm install -g vercel
+```
+
+3. Login to Vercel:
+```bash
+vercel login
+```
+
+4. Deploy the site:
+```bash
+vercel
+```
+
+5. Follow the prompts to set up your site.
+
+6. To deploy to production:
+```bash
+vercel --prod
+```
+
+### Option 3: Deploy to a Traditional Web Server
+
+1. Build the project:
+```bash
+npm run build
+# or
+yarn build
+```
+
+2. Upload the contents of the `dist` directory to your web server using FTP or SSH.
+
+3. Configure your web server to serve the `index.html` file for all routes (to support client-side routing).
+
+#### Apache Configuration
+Create or modify the `.htaccess` file in your web root:
+```
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+```
+
+#### Nginx Configuration
+Add this to your server block:
+```
+location / {
+  try_files $uri $uri/ /index.html;
+}
+```
+
+### Option 4: Deploy using Docker
+
+1. Create a `Dockerfile` in the project root:
+```dockerfile
+FROM node:16-alpine as build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+2. Create an `nginx.conf` file:
+```
+server {
+  listen 80;
+  
+  location / {
+    root /usr/share/nginx/html;
+    index index.html;
+    try_files $uri $uri/ /index.html;
+  }
+}
+```
+
+3. Build the Docker image:
+```bash
+docker build -t amaris-website .
+```
+
+4. Run the container:
+```bash
+docker run -p 8080:80 amaris-website
+```
+
+5. The website will be available at `http://localhost:8080`
+
+## Admin Access
+
+For demo purposes, use the following credentials to access the admin panel:
+- Email: admin@amarisco.com
+- Password: admin123
+
+## Project Structure
+
+```
+amaris-machinery/
+├── public/            # Static assets
+│   └── images/        # Image files
+├── src/               # Source code
+│   ├── components/    # Reusable components
+│   │   ├── admin/     # Admin-specific components
+│   │   ├── layout/    # Layout components
+│   │   └── ui/        # UI components (shadcn/ui)
+│   ├── contexts/      # React contexts
+│   ├── hooks/         # Custom hooks
+│   ├── lib/           # Utility functions
+│   ├── pages/         # Page components
+│   │   └── admin/     # Admin pages
+│   ├── services/      # API services
+│   ├── types/         # TypeScript type definitions
+│   ├── main.tsx       # Entry point
+│   └── index.css      # Global styles
+├── .gitignore
+├── index.html
+├── package.json
+├── README.md
+├── tailwind.config.js
+├── tsconfig.json
+└── vite.config.ts
+```
+
+## Customization
+
+### Changing Colors
+Edit the `tailwind.config.js` file to modify the color scheme.
+
+### Adding New Products
+Use the admin panel to add new products, or modify the mock data in `src/services/api.ts`.
+
+### Modifying Content
+Update the content in the respective page components under `src/pages/`.
+
+## License
+
+This project is licensed under the MIT License.

@@ -1,80 +1,145 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { ToastProvider } from './contexts/ToastContext';
-import './index.css';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./contexts/auth-context";
+import { Layout } from "./components/layout/layout";
+import "./index.css";
 
-// Pages
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import LoanApplications from './pages/LoanApplications';
-import CashFlowPage from './pages/CashFlow';
-import Repayments from './pages/Repayments';
-import Reports from './pages/Reports';
+// Public Pages
+import HomePage from "./pages/home";
+import ProductsPage from "./pages/products";
+import ProductDetailPage from "./pages/product-detail";
+import RequestInvoicePage from "./pages/request-invoice";
+import ThankYouPage from "./pages/thank-you";
+import AboutPage from "./pages/about";
+import ContactPage from "./pages/contact";
+
+// Admin Pages
+import AdminLoginPage from "./pages/admin/login";
+import AdminDashboardPage from "./pages/admin/dashboard";
+import AdminProductsPage from "./pages/admin/products/index";
+import AdminInvoiceRequestsPage from "./pages/admin/invoice-requests/index";
+import AdminUsersPage from "./pages/admin/users/index";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    return <Navigate to="/login" replace />;
+  const user = localStorage.getItem("user");
+  if (!user) {
+    return <Navigate to="/admin/login" replace />;
   }
   return <>{children}</>;
 };
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
-      <ToastProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/loan-applications"
-              element={
-                <ProtectedRoute>
-                  <LoanApplications />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/cash-flow"
-              element={
-                <ProtectedRoute>
-                  <CashFlowPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/repayments"
-              element={
-                <ProtectedRoute>
-                  <Repayments />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports"
-              element={
-                <ProtectedRoute>
-                  <Reports />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route
+            path="/"
+            element={
+              <Layout>
+                <HomePage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <Layout>
+                <ProductsPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/products/:id"
+            element={
+              <Layout>
+                <ProductDetailPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/request-invoice"
+            element={
+              <Layout>
+                <RequestInvoicePage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/request-invoice/:id"
+            element={
+              <Layout>
+                <RequestInvoicePage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/thank-you"
+            element={
+              <Layout>
+                <ThankYouPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <Layout>
+                <AboutPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <Layout>
+                <ContactPage />
+              </Layout>
+            }
+          />
+
+          {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <ProtectedRoute>
+                <AdminProductsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/invoice-requests"
+            element={
+              <ProtectedRoute>
+                <AdminInvoiceRequestsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute>
+                <AdminUsersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Fallback Route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </AuthProvider>
   </React.StrictMode>
 );
