@@ -11,6 +11,7 @@ A comprehensive website for Amaris Co. Ltd, a heavy machinery selling company. T
 - Invoice request system
 - Contact form
 - About us page
+- SEO optimized with structured data
 
 ### Admin Features
 - Dashboard with key metrics
@@ -27,6 +28,7 @@ A comprehensive website for Amaris Co. Ltd, a heavy machinery selling company. T
 - **Form Handling**: React Hook Form with Zod validation
 - **UI Components**: shadcn/ui (built on Radix UI)
 - **Icons**: Lucide React
+- **SEO**: React Helmet Async, Structured Data, Sitemap
 
 ## Getting Started
 
@@ -73,6 +75,19 @@ npm run preview
 # or
 yarn preview
 ```
+
+## SEO Features
+
+The website includes several SEO optimizations:
+
+1. **Meta Tags**: Each page has optimized title, description, and keywords
+2. **Structured Data**: JSON-LD for products and organization information
+3. **Sitemap**: Automatically generated sitemap.xml
+4. **Robots.txt**: Properly configured for search engines
+5. **Canonical URLs**: Prevents duplicate content issues
+6. **Open Graph Tags**: For better social media sharing
+7. **Semantic HTML**: Proper heading hierarchy and semantic elements
+8. **Mobile Responsive**: Fully responsive design for all devices
 
 ## Deployment Instructions
 
@@ -152,6 +167,25 @@ Create or modify the `.htaccess` file in your web root:
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
 </IfModule>
+
+# Enable GZIP compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
+</IfModule>
+
+# Set browser caching
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType application/pdf "access plus 1 month"
+  ExpiresByType application/x-font-woff "access plus 1 year"
+</IfModule>
 ```
 
 #### Nginx Configuration
@@ -160,6 +194,10 @@ Add this to your server block:
 location / {
   try_files $uri $uri/ /index.html;
 }
+
+# Enable GZIP compression
+gzip on;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 ```
 
 ### Option 4: Deploy using Docker
@@ -190,6 +228,16 @@ server {
     index index.html;
     try_files $uri $uri/ /index.html;
   }
+  
+  # Enable GZIP compression
+  gzip on;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+  
+  # Set cache headers
+  location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg)$ {
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000";
+  }
 }
 ```
 
@@ -216,11 +264,16 @@ For demo purposes, use the following credentials to access the admin panel:
 ```
 amaris-machinery/
 ├── public/            # Static assets
-│   └── images/        # Image files
+│   ├── images/        # Image files
+│   ├── robots.txt     # Robots file for SEO
+│   └── sitemap.xml    # Auto-generated sitemap
+├── scripts/           # Build scripts
+│   └── generate-sitemap.js # Sitemap generator
 ├── src/               # Source code
 │   ├── components/    # Reusable components
 │   │   ├── admin/     # Admin-specific components
 │   │   ├── layout/    # Layout components
+│   │   ├── seo/       # SEO components
 │   │   └── ui/        # UI components (shadcn/ui)
 │   ├── contexts/      # React contexts
 │   ├── hooks/         # Custom hooks
@@ -239,6 +292,16 @@ amaris-machinery/
 ├── tsconfig.json
 └── vite.config.ts
 ```
+
+## SEO Maintenance
+
+To keep your SEO optimized:
+
+1. **Update Meta Tags**: When adding new pages, ensure they have proper meta tags
+2. **Regenerate Sitemap**: Run `npm run generate-sitemap` after adding new pages
+3. **Monitor Performance**: Use Google PageSpeed Insights to check performance
+4. **Check Search Console**: Regularly check Google Search Console for issues
+5. **Update Structured Data**: Keep product information up to date
 
 ## Customization
 

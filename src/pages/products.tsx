@@ -4,6 +4,7 @@ import { Filter, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { SEO } from "@/components/seo/seo";
 import { api } from "@/services/api";
 import { Product, Category } from "@/types";
 
@@ -16,6 +17,7 @@ export default function ProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
   
   const categoryParam = searchParams.get("category");
+  const currentCategory = categories.find(cat => cat.slug === categoryParam);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,125 +83,150 @@ export default function ProductsPage() {
     setShowFilters(!showFilters);
   };
 
+  // SEO title and description based on category
+  const seoTitle = currentCategory 
+    ? `${currentCategory.name} - Heavy Machinery Products` 
+    : "Heavy Machinery Products & Equipment";
+  
+  const seoDescription = currentCategory
+    ? `Browse our selection of high-quality ${currentCategory.name.toLowerCase()} for construction, mining, and industrial applications. ${currentCategory.description}`
+    : "Explore our comprehensive range of heavy machinery including excavators, loaders, dozers, trucks, crushers, and attachments for construction and mining.";
+
+  const seoKeywords = currentCategory
+    ? `${currentCategory.name.toLowerCase()}, heavy machinery, construction equipment, ${currentCategory.slug}`
+    : "heavy machinery, construction equipment, excavators, loaders, dozers, trucks, crushers, industrial machinery";
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Our Products</h1>
+    <>
+      <SEO 
+        title={seoTitle}
+        description={seoDescription}
+        keywords={seoKeywords}
+        canonicalUrl={categoryParam 
+          ? `https://amarisco.com/products?category=${categoryParam}`
+          : "https://amarisco.com/products"
+        }
+      />
       
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Mobile Filter Toggle */}
-        <div className="lg:hidden mb-4">
-          <Button
-            variant="outline"
-            className="w-full flex items-center justify-between"
-            onClick={toggleFilters}
-          >
-            <div className="flex items-center">
-              <Filter className="h-4 w-4 mr-2" />
-              <span>Filters</span>
-            </div>
-            {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </div>
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6">Our Products</h1>
         
-        {/* Sidebar Filters */}
-        <div className={`lg:w-1/4 ${showFilters ? 'block' : 'hidden'} lg:block`}>
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-lg font-semibold mb-4">Categories</h2>
-            <div className="space-y-2">
-              <button
-                onClick={clearFilters}
-                className={`w-full text-left px-3 py-2 rounded-md ${!categoryParam ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
-              >
-                All Products
-              </button>
-              {categories.map((category) => (
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Mobile Filter Toggle */}
+          <div className="lg:hidden mb-4">
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-between"
+              onClick={toggleFilters}
+            >
+              <div className="flex items-center">
+                <Filter className="h-4 w-4 mr-2" />
+                <span>Filters</span>
+              </div>
+              {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+          
+          {/* Sidebar Filters */}
+          <div className={`lg:w-1/4 ${showFilters ? 'block' : 'hidden'} lg:block`}>
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h2 className="text-lg font-semibold mb-4">Categories</h2>
+              <div className="space-y-2">
                 <button
-                  key={category.id}
-                  onClick={() => handleCategoryFilter(category.slug)}
-                  className={`w-full text-left px-3 py-2 rounded-md ${categoryParam === category.slug ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+                  onClick={clearFilters}
+                  className={`w-full text-left px-3 py-2 rounded-md ${!categoryParam ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
                 >
-                  {category.name}
+                  All Products
                 </button>
-              ))}
+                {categories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategoryFilter(category.slug)}
+                    className={`w-full text-left px-3 py-2 rounded-md ${categoryParam === category.slug ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+              
+              {categoryParam && (
+                <Button
+                  variant="ghost"
+                  className="mt-4 text-sm"
+                  onClick={clearFilters}
+                >
+                  Clear Filters
+                </Button>
+              )}
             </div>
-            
-            {categoryParam && (
-              <Button
-                variant="ghost"
-                className="mt-4 text-sm"
-                onClick={clearFilters}
-              >
-                Clear Filters
+          </div>
+          
+          {/* Products Grid */}
+          <div className="lg:w-3/4">
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="mb-6 flex gap-2">
+              <Input
+                type="text"
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-grow"
+              />
+              <Button type="submit">
+                <Search className="h-4 w-4 mr-2" />
+                Search
               </Button>
+            </form>
+            
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Card key={i} className="border-none shadow-lg animate-pulse">
+                    <div className="h-48 bg-gray-200 rounded-t-lg"></div>
+                    <CardContent className="pt-6">
+                      <div className="h-6 bg-gray-200 rounded mb-4 w-3/4"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-2 w-full"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-4 w-2/3"></div>
+                      <div className="h-10 bg-gray-200 rounded w-full mt-6"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : products.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product) => (
+                  <Card key={product.id} className="border-none shadow-lg product-card">
+                    <div className="h-48 overflow-hidden">
+                      <img
+                        src={product.mainImage}
+                        alt={product.name}
+                        className="w-full h-full object-cover rounded-t-lg"
+                      />
+                    </div>
+                    <CardContent className="pt-6">
+                      <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
+                      <p className="text-gray-600 line-clamp-2 mb-4">
+                        {product.description}
+                      </p>
+                      <Link to={`/products/${product.id}`}>
+                        <Button className="w-full">View Details</Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <h3 className="text-xl font-semibold mb-2">No products found</h3>
+                <p className="text-gray-600 mb-6">
+                  We couldn't find any products matching your criteria.
+                </p>
+                <Button onClick={clearFilters}>Clear Filters</Button>
+              </div>
             )}
           </div>
         </div>
-        
-        {/* Products Grid */}
-        <div className="lg:w-3/4">
-          {/* Search Bar */}
-          <form onSubmit={handleSearch} className="mb-6 flex gap-2">
-            <Input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-grow"
-            />
-            <Button type="submit">
-              <Search className="h-4 w-4 mr-2" />
-              Search
-            </Button>
-          </form>
-          
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Card key={i} className="border-none shadow-lg animate-pulse">
-                  <div className="h-48 bg-gray-200 rounded-t-lg"></div>
-                  <CardContent className="pt-6">
-                    <div className="h-6 bg-gray-200 rounded mb-4 w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded mb-2 w-full"></div>
-                    <div className="h-4 bg-gray-200 rounded mb-4 w-2/3"></div>
-                    <div className="h-10 bg-gray-200 rounded w-full mt-6"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : products.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product) => (
-                <Card key={product.id} className="border-none shadow-lg product-card">
-                  <div className="h-48 overflow-hidden">
-                    <img
-                      src={product.mainImage}
-                      alt={product.name}
-                      className="w-full h-full object-cover rounded-t-lg"
-                    />
-                  </div>
-                  <CardContent className="pt-6">
-                    <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
-                    <p className="text-gray-600 line-clamp-2 mb-4">
-                      {product.description}
-                    </p>
-                    <Link to={`/products/${product.id}`}>
-                      <Button className="w-full">View Details</Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <h3 className="text-xl font-semibold mb-2">No products found</h3>
-              <p className="text-gray-600 mb-6">
-                We couldn't find any products matching your criteria.
-              </p>
-              <Button onClick={clearFilters}>Clear Filters</Button>
-            </div>
-          )}
-        </div>
       </div>
-    </div>
+    </>
   );
 }
